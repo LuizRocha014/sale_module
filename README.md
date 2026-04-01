@@ -6,6 +6,7 @@ Pacote Flutter de **vendas** do ecossistema InOutWareApp. Segue a estrutura insp
 
 - **`componentes_lr`**: `path: ../../../Flutter_X_Components_Flutter` (irmão da pasta `InOutWareApp` no repositório).
 - **`get`**: estado/navegação auxiliar nas telas do módulo.
+- **`in_out_layout`**: layout desktop vs mobile nas páginas do módulo (`AdaptiveModulePage`).
 
 ## Estrutura
 
