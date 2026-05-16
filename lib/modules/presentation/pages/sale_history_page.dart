@@ -1,7 +1,10 @@
+import 'package:componentes_lr/componentes_lr.dart' show isDesktopFormFactor;
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:sale_module/modules/domain/entities/internal_use_purpose.dart';
 import 'package:sale_module/modules/domain/entities/sale_history.dart';
 import 'package:sale_module/modules/presentation/controllers/sale_home_controller.dart';
+import 'package:stock_module/presentation_export.dart';
 
 /// Lista de vendas em tela cheia (substitui o antigo bottom sheet do histórico).
 class SaleHistoryPage extends StatelessWidget {
@@ -16,10 +19,16 @@ class SaleHistoryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Histórico de vendas'),
-      ),
+    final desktop = isDesktopFormFactor;
+    return IwModulePage(
+      onBack: () => Get.back(),
+      breadcrumb: desktop
+          ? const IwBreadcrumbData(
+              icon: Icons.point_of_sale_outlined,
+              label: 'Vendas',
+              sub: 'Histórico',
+            )
+          : null,
       body: FutureBuilder<List<SaleHistoryRecord>>(
         future: controller.loadSaleHistory(),
         builder: (context, snap) {
@@ -27,107 +36,213 @@ class SaleHistoryPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
+            return _ErrorState(
+              message:
                   'Não foi possível carregar o histórico.\n${snap.error}',
-                  textAlign: TextAlign.center,
-                ),
-              ),
             );
           }
           final list = snap.data ?? [];
-          if (list.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Nenhuma venda encontrada.',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Vendas registradas neste aparelho ficam salvas aqui. Com GET /api/inventory/sales no servidor, a lista também vem da API.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+          if (list.isEmpty) return const _EmptyState();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text(
-                  'Vendas realizadas',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Toque para ver os itens.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ),
-              const Divider(height: 1),
+              if (!desktop) ...[
+                const _MobileTitle(),
+                const SizedBox(height: 12),
+              ],
               Expanded(
-                child: ListView.builder(
-                  itemCount: list.length,
-                  itemBuilder: (c, i) {
-                    final r = list[i];
-                    return ListTile(
-                      leading: Icon(
-                        r.isInternalUse
-                            ? Icons.inventory_2_outlined
-                            : Icons.shopping_bag_outlined,
-                      ),
-                      title: Text(_saleTitle(r)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _saleOperationLabel(r),
-                            style: Theme.of(c).textTheme.labelLarge?.copyWith(
-                                  color: Theme.of(c).colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _saleMetaLine(r),
-                            style: Theme.of(c).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      isThreeLine: true,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => onSaleSelected(r),
-                    );
-                  },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: IwColors.surface,
+                    borderRadius: BorderRadius.circular(IwRadius.lg),
+                    border: Border.all(color: IwColors.outlineVariant),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListView.separated(
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const Divider(
+                        height: 1, color: IwColors.outlineVariant),
+                    itemBuilder: (c, i) {
+                      final r = list[i];
+                      return _HistoryRow(
+                        record: r,
+                        onTap: () => onSaleSelected(r),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _MobileTitle extends StatelessWidget {
+  const _MobileTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Histórico de vendas',
+          style: TextStyle(
+            fontSize: 22,
+            height: 28 / 22,
+            fontWeight: FontWeight.w600,
+            color: IwColors.onSurface,
+            letterSpacing: -0.11,
+          ),
+        ),
+        SizedBox(height: 2),
+        Text(
+          'Toque para ver os itens.',
+          style: TextStyle(
+            fontSize: 13,
+            color: IwColors.onSurfaceVariant,
+            height: 18 / 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.record, required this.onTap});
+  final SaleHistoryRecord record;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = record.isInternalUse ? IwColors.tertiary : IwColors.primary;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(IwRadius.md),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                record.isInternalUse
+                    ? Icons.inventory_2_outlined
+                    : Icons.shopping_bag_outlined,
+                color: accent,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _saleTitle(record),
+                    style: const TextStyle(
+                      fontFamily: 'RobotoMono',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: IwColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _saleOperationLabel(record),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _saleMetaLine(record),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: IwColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: IwColors.onSurfaceVariant, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.receipt_long_outlined,
+                size: 56, color: IwColors.outline),
+            const SizedBox(height: 14),
+            const Text(
+              'Nenhuma venda encontrada.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: IwColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Vendas registradas neste aparelho ficam salvas aqui.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: IwColors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_outlined, size: 48, color: IwColors.error),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: IwColors.onSurface),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -169,7 +284,10 @@ String _saleMetaLine(SaleHistoryRecord r) {
 
 String _formatQty(double v) {
   if (v == v.roundToDouble()) return v.toInt().toString();
-  return v.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+  return v
+      .toStringAsFixed(3)
+      .replaceAll(RegExp(r'0+$'), '')
+      .replaceAll(RegExp(r'\.$'), '');
 }
 
 String _formatMoney(double v) =>
